@@ -5,6 +5,8 @@
 //  Created by Артур Агеев on 06.02.2023.
 //
 
+
+import Combine
 import Foundation
 import SwiftUI
 
@@ -13,6 +15,37 @@ class SongListViewModel: ObservableObject {
     @Published public private(set) var songs: [SongViewModel] = []
     
     private let dateModel: DataModel = DataModel()
+    private let artworkLoader: ArtworkLoader = ArtworkLoader()
+    private var disposanbles = Set<AnyCancellable>()
+    
+    init() {
+        $searchTerm
+            .sink(receiveValue: loadSongs(searchTerm:))
+            .store(in: &disposanbles)
+    }
+    
+    private func loadSongs(searchTerm: String) {
+        songs.removeAll()
+        artworkLoader.reset()
+        
+        
+        dateModel.loadSongs(searchTerm: searchTerm) { songs in
+            songs.forEach { self.appendSong(song: $0) }
+        }
+    }
+    
+    private func appendSong(song: Song) {
+        let songViewModel = SongViewModel(song: song)
+        DispatchQueue.main.async {
+            self.songs.append(songViewModel)
+        }
+        artworkLoader.loadArtwork(forSong: song) { image in
+            DispatchQueue.main.async {
+                songViewModel.artwork = image
+            }
+        }
+    }
+    
 }
 
 class SongViewModel: Identifiable, ObservableObject {
